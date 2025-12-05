@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:leofluter/dao/session_dao.dart';
 import 'package:leofluter/database/database_helper.dart';
+import 'package:leofluter/screens/home_screen.dart';
 import 'package:leofluter/screens/login_screen.dart';
 
 void main() async {
@@ -10,23 +12,31 @@ void main() async {
   // ------------------------------------
   await DatabaseHelper.initDB();
 
-  // ------------------------------------
-  // 2. Exportar automáticamente la BD
-  //    (solo para pruebas)
-  // ------------------------------------
+  // (Opcional) Exportar la BD para pruebas
   await DatabaseHelper.exportDB();
 
-  runApp(const MainApp());
+  // ------------------------------------
+  // 2. Verificar si hay una sesión activa
+  // ------------------------------------
+  final sessionDao = SessionDao();
+  final activeUserId = await sessionDao.getActiveUserId();
+
+  // ------------------------------------
+  // 3. Definir la pantalla inicial
+  // ------------------------------------
+  final Widget initialScreen = activeUserId != null
+      ? const HomeScreen()
+      : const LoginScreen();
+
+  runApp(MainApp(initialScreen: initialScreen));
 }
 
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+  final Widget initialScreen;
+  const MainApp({super.key, required this.initialScreen});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: LoginScreen(),
-    );
+    return MaterialApp(debugShowCheckedModeBanner: false, home: initialScreen);
   }
 }

@@ -1,7 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:leofluter/dao/session_dao.dart';
+import 'package:leofluter/dao/user_dao.dart';
+import 'package:leofluter/dto/session_dto.dart';
+import 'package:leofluter/models/user_model.dart';
+import 'package:leofluter/screens/login_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final SessionDao _sessionDao = SessionDao();
+  final UserDao _userDao = UserDao();
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final userId = await _sessionDao.getActiveUserId();
+    if (userId != null) {
+      final user = await _userDao.getUserById(userId);
+      setState(() {
+        _currentUser = user;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,10 +43,82 @@ class HomeScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
         ),
         centerTitle: true,
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         elevation: 4,
         shadowColor: Colors.black26,
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            if (_currentUser != null)
+              UserAccountsDrawerHeader(
+                accountName: Text(
+                  _currentUser!.nombre,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                accountEmail: Text(
+                  "${_currentUser!.username}\n${_currentUser!.email}",
+                ),
+                currentAccountPicture: const CircleAvatar(
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, size: 40, color: const Color(0xFF1A237E),
+                  ),
+                ),
+                decoration: const BoxDecoration(color: Color(0xFF1A237E)),
+              ),
+            ListTile(
+              leading: const Icon(Icons.home),
+              title: const Text('Inicio'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Cerrar Sesión'),
+              onTap: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text('Confirmar Cierre de Sesión'),
+                      content: const Text(
+                        '¿Estás seguro de que deseas cerrar la sesión?',
+                      ),
+                      actions: <Widget>[
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Aceptar'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+
+                if (confirm == true) {
+                  await _sessionDao.createSession(SessionDto(activo: 0));
+                  if (!mounted) return;
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                    (Route<dynamic> route) => false,
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 20),

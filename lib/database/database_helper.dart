@@ -18,8 +18,11 @@ class DatabaseHelper {
       onCreate: (db, version) async {
         print(">>> CREANDO TABLAS POR PRIMERA VEZ <<<");
         // Crear la tabla de usuarios
+        await db.execute(Tables.createSesionTable);
         await db.execute(Tables.createUsersTable);
         await db.execute(Tables.createServicesTable);
+        await db.execute(Tables.createDatesTable);
+        
       },
     );
 

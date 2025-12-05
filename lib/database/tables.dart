@@ -10,6 +10,18 @@ class Tables {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   """;
+
+  static const String createSesionTable = """
+    CREATE TABLE IF NOT EXISTS session (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activo INTEGER NOT NULL,
+      id_usuario INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (id_usuario) REFERENCES users(id)
+    );
+  """;
+
   static const String createServicesTable = """
     CREATE TABLE IF NOT EXISTS services (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,4 +33,17 @@ class Tables {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   """;
+
+  static const String createDatesTable = """
+    CREATE TABLE IF NOT EXISTS dates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      asunto INTEGER NOT NULL,
+      hora TEXT NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (asunto) REFERENCES services(id)
+    );
+  """;  
 }
