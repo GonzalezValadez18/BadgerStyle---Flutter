@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:leofluter/dao/user_dao.dart';
 import 'package:leofluter/dto/user_dto.dart';
+import 'package:leofluter/utils/dialog_helper.dart';
 import 'package:leofluter/screens/login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -22,23 +23,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _registerUser() async {
     if (_formKey.currentState!.validate()) {
-      final userDto = UserDto(
-        nombre: _nameController.text,
-        username: _usernameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-
-      final id = await _userDao.insertUser(userDto);
-
-      if (id != -1) {
-        print('Usuario registrado con éxito con ID: $id');
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+      try {
+        final userDto = UserDto(
+          nombre: _nameController.text,
+          username: _usernameController.text,
+          email: _emailController.text,
+          password: _passwordController.text,
         );
-      } else {
-        // Mostrar un error
-        print('Error al registrar el usuario');
+
+        final newUser = await _userDao.registerUser(userDto);
+
+        if (!mounted || newUser == null) return;
+
+        DialogHelper.showSuccessDialog(
+          context: context,
+          title: '¡Registro Exitoso!',
+          message: 'Tu cuenta ha sido creada. Ahora puedes iniciar sesión.',
+          onOk: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
+          },
+        );
+      } catch (e) {
+        DialogHelper.showErrorDialog(
+          context: context,
+          title: 'Error de Registro',
+          message: e.toString().replaceFirst('Exception: ', ''),
+        );
       }
     }
   }

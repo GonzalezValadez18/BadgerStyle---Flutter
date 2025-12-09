@@ -6,8 +6,8 @@ import 'package:leofluter/dto/session_dto.dart';
 import 'package:leofluter/models/service_model.dart';
 import 'package:leofluter/models/user_model.dart';
 import 'package:leofluter/screens/login_screen.dart';
-import 'package:leofluter/screens/schedule_appointment_screen.dart';
-import 'package:leofluter/screens/my_appointments_screen.dart';
+import 'package:leofluter/screens/book_date.dart';
+import 'package:leofluter/screens/dates_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

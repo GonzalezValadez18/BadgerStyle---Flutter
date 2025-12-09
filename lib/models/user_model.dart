@@ -20,10 +20,13 @@ class User {
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'],
-      nombre: map['nombre'],
+      nombre:
+          map['name'] ??
+          map['nombre'], // Acepta 'name' de Laravel o 'nombre' de la BD local
       email: map['email'],
-      password: map['password'],
-      username: map['username'],
+      password:
+          map['password'] ?? '', // La contraseña no debería venir del servidor
+      username: map['username'] ?? '',
       createdAt: map['created_at'],
       updatedAt: map['updated_at'],
     );
@@ -34,8 +37,10 @@ class User {
       'id': id,
       'nombre': nombre,
       'email': email,
-      'password': password,
+      // No incluimos la contraseña al convertir a mapa para evitar sobreescribir hashes locales.
       'username': username,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
     };
   }
 }
