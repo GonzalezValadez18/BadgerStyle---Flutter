@@ -27,7 +27,7 @@ class Tables {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       servicio TEXT NOT NULL,
       descripcion TEXT NOT NULL,
-      precio TEXT NOT NULL UNIQUE,
+      precio REAL NOT NULL,
       img TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -38,6 +38,7 @@ class Tables {
     CREATE TABLE IF NOT EXISTS dates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       asunto INTEGER NOT NULL,
+      fecha TEXT NOT NULL,
       hora TEXT NOT NULL,
       user_id INTEGER NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -45,5 +46,5 @@ class Tables {
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (asunto) REFERENCES services(id)
     );
-  """;  
+  """;
 }

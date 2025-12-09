@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:leofluter/dao/service_dao.dart';
+import 'package:leofluter/dto/service_dto.dart';
 import 'package:leofluter/database/tables.dart';
 
 class DatabaseHelper {
@@ -22,11 +24,57 @@ class DatabaseHelper {
         await db.execute(Tables.createUsersTable);
         await db.execute(Tables.createServicesTable);
         await db.execute(Tables.createDatesTable);
-        
+
+        // Insertar servicios iniciales
+        await _insertInitialServices(db);
       },
     );
 
     return _db!;
+  }
+
+  static Future<void> _insertInitialServices(Database db) async {
+    final servicesToInsert = [
+      ServiceDto(
+        servicio: "Corte de Cabello Hombre",
+        descripcion: "Corte moderno, clásico y con estilo personalizado.",
+        precio: 120,
+        img: "assets/images/services/corte-hombre.webp",
+      ),
+      ServiceDto(
+        servicio: "Corte de Cabello Mujer",
+        descripcion: "Corte a la moda adaptado a tu estilo único.",
+        precio: 120,
+        img: "assets/images/services/corte-mujer.webp",
+      ),
+      ServiceDto(
+        servicio: "Corte de Cabello Niño",
+        descripcion: "Corte cómodo y divertido para los más pequeños.",
+        precio: 120,
+        img: "assets/images/services/corte-nino.webp",
+      ),
+      ServiceDto(
+        servicio: "Afeitado de Barba",
+        descripcion: "Afeitado a navaja con toalla caliente.",
+        precio: 100,
+        img: "assets/images/services/afeitado.webp",
+      ),
+      ServiceDto(
+        servicio: "Tinte de Cabello",
+        descripcion: "Coloración profesional de alta calidad.",
+        precio: 250,
+        img: "assets/images/services/tinte.webp",
+      ),
+    ];
+
+    for (final serviceDto in servicesToInsert) {
+      await db.insert(
+        'services',
+        serviceDto.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    print(">>> ${servicesToInsert.length} SERVICIOS INICIALES INSERTADOS <<<");
   }
 
   static Future<Database> get database async => await initDB();

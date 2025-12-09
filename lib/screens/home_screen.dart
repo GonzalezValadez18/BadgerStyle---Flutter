@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:leofluter/dao/session_dao.dart';
+import 'package:leofluter/dao/service_dao.dart';
 import 'package:leofluter/dao/user_dao.dart';
 import 'package:leofluter/dto/session_dto.dart';
+import 'package:leofluter/models/service_model.dart';
 import 'package:leofluter/models/user_model.dart';
 import 'package:leofluter/screens/login_screen.dart';
+import 'package:leofluter/screens/schedule_appointment_screen.dart';
+import 'package:leofluter/screens/my_appointments_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,11 +19,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final SessionDao _sessionDao = SessionDao();
   final UserDao _userDao = UserDao();
+  final ServiceDao _serviceDao = ServiceDao();
   User? _currentUser;
+  List<Service> _services = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadData();
     _loadCurrentUser();
   }
 
@@ -31,6 +39,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _currentUser = user;
       });
     }
+  }
+
+  Future<void> _loadData() async {
+    final services = await _serviceDao.getAllServices();
+    setState(() {
+      _services = services;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -66,7 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 currentAccountPicture: const CircleAvatar(
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40, color: const Color(0xFF1A237E),
+                  child: Icon(
+                    Icons.person,
+                    size: 40,
+                    color: const Color(0xFF1A237E),
                   ),
                 ),
                 decoration: const BoxDecoration(color: Color(0xFF1A237E)),
@@ -76,6 +95,20 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Inicio'),
               onTap: () {
                 Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: const Text('Mis Citas'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        MyAppointmentsScreen(currentUser: _currentUser!),
+                  ),
+                );
               },
             ),
             ListTile(
@@ -120,43 +153,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          children: const [
-            ServiceCard(
-              image: "assets/images/services/corte-hombre.webp",
-              title: "Corte de Cabello Hombre",
-              description: "Corte moderno, clásico y con estilo personalizado.",
-              price: 120,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              itemCount: _services.length,
+              itemBuilder: (context, index) {
+                final service = _services[index];
+                return ServiceCard(
+                  image: service.img,
+                  title: service.servicio,
+                  description: service.descripcion,
+                  price: service.precio,
+                  currentUser: _currentUser,
+                  service: service,
+                );
+              },
             ),
-            ServiceCard(
-              image: "assets/images/services/corte-mujer.webp",
-              title: "Corte de Cabello Mujer",
-              description: "Corte a la moda adaptado a tu estilo único.",
-              price: 120,
-            ),
-            ServiceCard(
-              image: "assets/images/services/corte-nino.webp",
-              title: "Corte de Cabello Niño",
-              description: "Corte cómodo y divertido para los más pequeños.",
-              price: 120,
-            ),
-            ServiceCard(
-              image: "assets/images/services/afeitado.webp",
-              title: "Afeitado de Barba",
-              description: "Afeitado a navaja con toalla caliente.",
-              price: 100,
-            ),
-            ServiceCard(
-              image: "assets/images/services/tinte.webp",
-              title: "Tinte de Cabello",
-              description: "Coloración profesional de alta calidad.",
-              price: 250,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -166,6 +179,8 @@ class ServiceCard extends StatelessWidget {
   final String title;
   final String description;
   final double price;
+  final User? currentUser;
+  final Service service;
 
   const ServiceCard({
     super.key,
@@ -173,6 +188,8 @@ class ServiceCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.price,
+    required this.currentUser,
+    required this.service,
   });
 
   @override
@@ -232,7 +249,17 @@ class ServiceCard extends StatelessWidget {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      // Navegar a pantalla de citas
+                      if (currentUser != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ScheduleAppointmentScreen(
+                              service: service,
+                              currentUser: currentUser!,
+                            ),
+                          ),
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A237E),
