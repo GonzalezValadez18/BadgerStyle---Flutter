@@ -23,7 +23,7 @@ class UserDao {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Accept': 'application/json', // Asegura que Laravel responda con JSON
         },
         body: jsonEncode({
           'name': userDto.nombre,
@@ -70,7 +70,7 @@ class UserDao {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          'Accept': 'application/json', // Asegura que Laravel responda con JSON
         },
         body: jsonEncode({'username': username, 'password': password}),
       );
@@ -82,9 +82,10 @@ class UserDao {
         // Laravel a menudo devuelve los datos del usuario dentro de una clave 'user'
         // y un 'token'. Ajusta esto según la respuesta de tu API.
         final userData = responseData['user'];
+        final token = responseData['token'];
 
         // 1. Convertimos los datos de la API a nuestro modelo User.
-        final user = User.fromMap(userData);
+        final user = User.fromMap(userData..['token'] = token);
 
         // 2. Guardamos o actualizamos el usuario en la base de datos local.
         final db = await dbHelper;
@@ -106,8 +107,6 @@ class UserDao {
             userMap..['password'] = '',
           ); // Insertamos con password vacío
         }
-        // (Opcional) Aquí puedes guardar el token para futuras peticiones.
-        // final token = responseData['token'];
 
         // 3. Devolvemos el objeto 'user' para que la app continúe.
         return user;

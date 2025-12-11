@@ -6,6 +6,7 @@ class Tables {
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       username TEXT NOT NULL,
+      token TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );

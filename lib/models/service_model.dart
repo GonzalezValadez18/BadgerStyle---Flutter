@@ -22,10 +22,22 @@ class Service {
       id: map['id'],
       servicio: map['servicio'],
       descripcion: map['descripcion'],
-      precio: map['precio'],
-      img: map['img'],
+      precio: double.tryParse(map['precio'].toString()) ?? 0.0,
+      img: map['img'] as String,
       createdAt: map['created_at'],
       updatedAt: map['updated_at'],
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'servicio': servicio,
+      'descripcion': descripcion,
+      'precio': precio,
+      'img': img,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
+    };
   }
 }

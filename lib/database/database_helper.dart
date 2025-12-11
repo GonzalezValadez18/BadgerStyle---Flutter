@@ -20,13 +20,17 @@ class DatabaseHelper {
       onCreate: (db, version) async {
         print(">>> CREANDO TABLAS POR PRIMERA VEZ <<<");
         // Crear la tabla de usuarios
+        // La tabla de sesión ya no es necesaria si el token está en users
+        // y la presencia de un token puede indicar una sesión activa.
+        // Por simplicidad, la mantenemos por ahora, pero podría refactorizarse.
         await db.execute(Tables.createSesionTable);
+
         await db.execute(Tables.createUsersTable);
         await db.execute(Tables.createServicesTable);
         await db.execute(Tables.createDatesTable);
 
-        // Insertar servicios iniciales
-        await _insertInitialServices(db);
+        // Ya no insertamos servicios iniciales desde aquí, vendrán de la API.
+        // await _insertInitialServices(db);
       },
     );
 

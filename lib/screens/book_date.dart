@@ -89,7 +89,7 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
       hora: DateFormat('HH:mm').format(appointmentDateTime),
     );
 
-    final id = await _dateDao.insertDate(dateDto);
+    final id = await _dateDao.scheduleAppointmentApi(dateDto);
 
     setState(() {
       _isSaving = false;
@@ -138,6 +138,10 @@ class _ScheduleAppointmentScreenState extends State<ScheduleAppointmentScreen> {
                 widget.service.img,
                 height: 280,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  height: 280,
+                  child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                ),
               ),
             ),
 

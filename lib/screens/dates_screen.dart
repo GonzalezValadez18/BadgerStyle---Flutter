@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:http/http.dart' as http;
 import 'package:leofluter/dao/date_dao.dart';
 import 'package:leofluter/dao/service_dao.dart';
 import 'package:leofluter/models/date_model.dart';
@@ -19,56 +20,69 @@ class MyAppointmentsScreen extends StatefulWidget {
 class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   final DateDao _dateDao = DateDao();
   final ServiceDao _serviceDao = ServiceDao();
-  List<Map<String, dynamic>> _appointments = [];
-  bool _isLoading = true;
+  late Future<List<Map<String, dynamic>>> _appointmentsFuture;
 
   @override
   void initState() {
     super.initState();
     initializeDateFormatting('es_ES', null);
-    _loadAppointments();
+    _appointmentsFuture = _loadAppointments();
   }
 
-  Future<void> _loadAppointments() async {
+  Future<List<Map<String, dynamic>>> _loadAppointments() async {
     try {
-      final db = await _dateDao.dbHelper;
-      final result = await db.query(
-        'dates',
-        where: 'user_id = ?',
-        whereArgs: [widget.currentUser.id],
-        orderBy: 'fecha DESC, hora DESC',
+      // 1. Obtener las citas desde la API usando el nuevo método del DAO
+      final List<Date> apiDates = await _dateDao.getDatesFromApi(
+        widget.currentUser.id!,
       );
 
-      if (result.isEmpty) {
-        setState(() {
-          _appointments = [];
-          _isLoading = false;
-        });
-        return;
+      if (apiDates.isEmpty) {
+        return [];
       }
 
-      // Cargar todos los servicios una sola vez
+      // 2. Obtener todos los servicios para mapearlos por ID
       final allServices = await _serviceDao.getAllServices();
-      final serviceMap = {for (var service in allServices) service.id: service};
+      final serviceMap = {for (var s in allServices) s.id: s};
 
+      // 3. Combinar citas con sus servicios correspondientes
       final appointments = <Map<String, dynamic>>[];
-      for (var dateMap in result) {
-        final serviceId = dateMap['asunto'];
-        final service = serviceMap[serviceId];
+      for (final date in apiDates) {
+        final service = serviceMap[date.asunto];
         if (service != null) {
-          appointments.add({'date': Date.fromMap(dateMap), 'service': service});
+          appointments.add({'date': date, 'service': service});
         }
       }
 
-      setState(() {
-        _appointments = appointments;
-        _isLoading = false;
+      // 4. Ordenar las citas de la más reciente a la más antigua
+      appointments.sort((a, b) {
+        final dateA = _parseDate(a['date'].fecha, a['date'].hora);
+        final dateB = _parseDate(b['date'].fecha, b['date'].hora);
+        return dateB.compareTo(dateA);
       });
+
+      return appointments;
     } catch (e) {
-      print("Error al cargar citas: $e");
-      setState(() {
-        _isLoading = false;
-      });
+      print("Error al cargar citas de la API: $e");
+      // Si hay un error, lo lanzamos para que el FutureBuilder lo muestre
+      throw Exception('No se pudieron cargar las citas. $e');
+    }
+  }
+
+  DateTime _parseDate(String fecha, String hora) {
+    try {
+      // Formato esperado: dd-MM-yyyy
+      final dateParts = fecha.split('-');
+      final timeParts = hora.split(':');
+      return DateTime(
+        int.parse(dateParts[2]),
+        int.parse(dateParts[1]),
+        int.parse(dateParts[0]),
+        int.parse(timeParts[0]),
+        int.parse(timeParts[1]),
+      );
+    } catch (e) {
+      print("Error parseando fecha '$fecha' y hora '$hora': $e");
+      return DateTime.now();
     }
   }
 
@@ -95,16 +109,40 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 
     if (confirm == true) {
       try {
-        final db = await _dateDao.dbHelper;
-        await db.delete('dates', where: 'id = ?', whereArgs: [appointmentId]);
-        _loadAppointments();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cita cancelada exitosamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // TODO: Añadir el token de autorización a la petición de borrado
+        // NOTA: El token ya se obtiene y usa en getDatesFromApi, aquí también se necesitaría.
+        // Eliminar de la API del servidor
+        final response = await http
+            .delete(
+              Uri.parse('http://10.0.2.2:8000/api/dates/$appointmentId'),
+              headers: {'Accept': 'application/json'},
+            )
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200 || response.statusCode == 204) {
+          // No es necesario borrar de la BD local si siempre cargamos de la API
+
+          // Recargar las citas
+          setState(() {
+            _appointmentsFuture = _loadAppointments();
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cita cancelada exitosamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error al cancelar la cita en el servidor'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } catch (e) {
+        print('Error al eliminar cita: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error al cancelar la cita'),
@@ -125,62 +163,67 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _appointments.isEmpty
-          ? Center(
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _appointmentsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Error: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red.shade700),
+                ),
+              ),
+            );
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.calendar_today,
+                    Icons.calendar_today_outlined,
                     size: 64,
                     color: Colors.grey.shade400,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No tienes citas agendadas',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
                   ),
                 ],
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              itemCount: _appointments.length,
-              itemBuilder: (context, index) {
-                final appointment = _appointments[index];
-                final date = appointment['date'] as Date;
-                final service = appointment['service'] as Service;
+            );
+          }
 
-                // Parsear la fecha y hora (formato guardado: dd-MM-yyyy HH:mm)
-                try {
-                  final dateParts = date.fecha.split('-');
-                  final timeParts = date.hora.split(':');
-                  final dateTime = DateTime(
-                    int.parse(dateParts[2]), // año
-                    int.parse(dateParts[1]), // mes
-                    int.parse(dateParts[0]), // día
-                    int.parse(timeParts[0]), // hora
-                    int.parse(timeParts[1]), // minuto
-                  );
+          final appointments = snapshot.data!;
 
-                  return AppointmentCard(
-                    service: service,
-                    date: date,
-                    dateTime: dateTime,
-                    onDelete: () => _deleteAppointment(date.id),
-                  );
-                } catch (e) {
-                  print("Error al parsear fecha: $e");
-                  return const SizedBox.shrink();
-                }
-              },
-            ),
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            itemCount: appointments.length,
+            itemBuilder: (context, index) {
+              final appointment = appointments[index];
+              final date = appointment['date'] as Date;
+              final service = appointment['service'] as Service;
+              final dateTime = _parseDate(date.fecha, date.hora);
+
+              return AppointmentCard(
+                service: service,
+                date: date,
+                dateTime: dateTime,
+                onDelete: () => _deleteAppointment(date.id),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

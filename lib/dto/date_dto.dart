@@ -1,17 +1,26 @@
 class DateDto {
-  final int asunto; // service_id
+  final int asunto; // Corresponds to service_id
+  final int userId;
   final String fecha;
   final String hora;
-  final int userId;
 
   DateDto({
     required this.asunto,
+    required this.userId,
     required this.fecha,
     required this.hora,
-    required this.userId,
   });
 
   Map<String, dynamic> toMap() {
-    return {'asunto': asunto, 'fecha': fecha, 'hora': hora, 'user_id': userId};
+    return {'asunto': asunto, 'userId': userId, 'fecha': fecha, 'hora': hora};
+  }
+
+  Map<String, dynamic> toMapForApi() {
+    return {
+      'asunto': asunto,
+      'user_id': userId, // Corrected for API
+      'fecha': fecha,
+      'hora': hora,
+    };
   }
 }

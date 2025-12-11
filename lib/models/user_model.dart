@@ -6,6 +6,7 @@ class User {
   final String username;
   final String? createdAt;
   final String? updatedAt;
+  final String? token;
 
   User({
     this.id,
@@ -15,6 +16,7 @@ class User {
     required this.username,
     this.createdAt,
     this.updatedAt,
+    this.token,
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
@@ -29,6 +31,7 @@ class User {
       username: map['username'] ?? '',
       createdAt: map['created_at'],
       updatedAt: map['updated_at'],
+      token: map['token'],
     );
   }
 
@@ -41,6 +44,7 @@ class User {
       'username': username,
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'token': token,
     };
   }
 }

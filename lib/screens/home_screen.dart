@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:leofluter/dao/session_dao.dart';
 import 'package:leofluter/dao/service_dao.dart';
 import 'package:leofluter/dao/user_dao.dart';
@@ -20,33 +21,21 @@ class _HomeScreenState extends State<HomeScreen> {
   final SessionDao _sessionDao = SessionDao();
   final UserDao _userDao = UserDao();
   final ServiceDao _serviceDao = ServiceDao();
-  User? _currentUser;
-  List<Service> _services = [];
-  bool _isLoading = true;
+  late Future<Map<String, dynamic>> _dataFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-    _loadCurrentUser();
+    _dataFuture = _loadAllData();
   }
 
-  Future<void> _loadCurrentUser() async {
+  Future<Map<String, dynamic>> _loadAllData() async {
     final userId = await _sessionDao.getActiveUserId();
-    if (userId != null) {
-      final user = await _userDao.getUserById(userId);
-      setState(() {
-        _currentUser = user;
-      });
-    }
-  }
+    final user = userId != null ? await _userDao.getUserById(userId) : null;
+    final services = await _serviceDao.syncServicesFromApi();
 
-  Future<void> _loadData() async {
-    final services = await _serviceDao.getAllServices();
-    setState(() {
-      _services = services;
-      _isLoading = false;
-    });
+    // No pre-cargar imágenes, se cargarán bajo demanda en cada tarjeta
+    return {'user': user, 'services': services};
   }
 
   @override
@@ -64,117 +53,140 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 4,
         shadowColor: Colors.black26,
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            if (_currentUser != null)
-              UserAccountsDrawerHeader(
-                accountName: Text(
-                  _currentUser!.nombre,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                accountEmail: Text(
-                  "${_currentUser!.username}\n${_currentUser!.email}",
-                ),
-                currentAccountPicture: const CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: const Color(0xFF1A237E),
-                  ),
-                ),
-                decoration: const BoxDecoration(color: Color(0xFF1A237E)),
-              ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Inicio'),
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Mis Citas'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        MyAppointmentsScreen(currentUser: _currentUser!),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Cerrar Sesión'),
-              onTap: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: const Text('Confirmar Cierre de Sesión'),
-                      content: const Text(
-                        '¿Estás seguro de que deseas cerrar la sesión?',
+      drawer: FutureBuilder<Map<String, dynamic>>(
+        future: _dataFuture,
+        builder: (context, snapshot) {
+          final User? currentUser = snapshot.hasData
+              ? snapshot.data!['user']
+              : null;
+          return Drawer(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                if (currentUser != null)
+                  UserAccountsDrawerHeader(
+                    accountName: Text(
+                      currentUser.nombre,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      actions: <Widget>[
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancelar'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          child: const Text('Aceptar'),
-                        ),
-                      ],
-                    );
-                  },
-                );
-
-                if (confirm == true) {
-                  await _sessionDao.createSession(SessionDto(activo: 0));
-                  if (!mounted) return;
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
                     ),
-                    (Route<dynamic> route) => false,
-                  );
-                }
-              },
+                    accountEmail: Text(
+                      "${currentUser.username}\n${currentUser.email}",
+                    ),
+                    currentAccountPicture: const CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.person,
+                        size: 40,
+                        color: Color(0xFF1A237E),
+                      ),
+                    ),
+                    decoration: const BoxDecoration(color: Color(0xFF1A237E)),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.home),
+                  title: const Text('Inicio'),
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: const Text('Mis Citas'),
+                  onTap: () {
+                    if (currentUser != null) {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              MyAppointmentsScreen(currentUser: currentUser),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Cerrar Sesión'),
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Confirmar Cierre de Sesión'),
+                          content: const Text(
+                            '¿Estás seguro de que deseas cerrar la sesión?',
+                          ),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancelar'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('Aceptar'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (confirm == true) {
+                      await _sessionDao.createSession(SessionDto(activo: 0));
+                      if (!mounted) return;
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                        (Route<dynamic> route) => false,
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _dataFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (snapshot.hasData) {
+            final User? currentUser = snapshot.data!['user'];
+            final List<Service> services = snapshot.data!['services'];
+            return ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              itemCount: _services.length,
+              itemCount: services.length,
               itemBuilder: (context, index) {
-                final service = _services[index];
+                final service = services[index];
                 return ServiceCard(
                   image: service.img,
                   title: service.servicio,
                   description: service.descripcion,
                   price: service.precio,
-                  currentUser: _currentUser,
+                  currentUser: currentUser,
                   service: service,
                 );
               },
-            ),
+            );
+          } else {
+            return const Center(child: Text('No se encontraron datos.'));
+          }
+        },
+      ),
     );
   }
 }
 
-class ServiceCard extends StatelessWidget {
+class ServiceCard extends StatefulWidget {
   final String image;
   final String title;
   final String description;
@@ -193,7 +205,19 @@ class ServiceCard extends StatelessWidget {
   });
 
   @override
+  State<ServiceCard> createState() => _ServiceCardState();
+}
+
+class _ServiceCardState extends State<ServiceCard>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    // Es importante llamar a super.build(context) cuando se usa el mixin.
+    super.build(context);
+
     return Card(
       elevation: 5,
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -204,7 +228,13 @@ class ServiceCard extends StatelessWidget {
           // Imagen del servicio
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-            child: Image.asset(image, height: 170, fit: BoxFit.cover),
+            child: Image.asset(
+              widget.image,
+              height: 170,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.error), // Manejo básico de errores
+            ),
           ),
 
           Padding(
@@ -214,7 +244,7 @@ class ServiceCard extends StatelessWidget {
               children: [
                 // Título
                 Text(
-                  title,
+                  widget.title,
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -225,7 +255,7 @@ class ServiceCard extends StatelessWidget {
 
                 // Descripción
                 Text(
-                  description,
+                  widget.description,
                   style: const TextStyle(fontSize: 14, color: Colors.black87),
                 ),
 
@@ -233,7 +263,7 @@ class ServiceCard extends StatelessWidget {
 
                 // Precio
                 Text(
-                  "\$${price.toStringAsFixed(0)} MXN",
+                  "\$${widget.price.toStringAsFixed(0)} MXN",
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -249,13 +279,13 @@ class ServiceCard extends StatelessWidget {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      if (currentUser != null) {
+                      if (widget.currentUser != null) {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => ScheduleAppointmentScreen(
-                              service: service,
-                              currentUser: currentUser!,
+                              service: widget.service,
+                              currentUser: widget.currentUser!,
                             ),
                           ),
                         );
